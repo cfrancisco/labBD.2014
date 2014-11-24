@@ -5,6 +5,7 @@ import java.awt.Component;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -186,12 +187,13 @@ public class JanelaPrincipal {
 
         // Realizar INSERT
         btInsert.addActionListener(new ActionListener() {
+            
+            
             @Override
             public void actionPerformed(ActionEvent e) {
-                String componentType;
-                String componentSplit[];
-
-                String insert = "INSERT INTO " + jc.getSelectedItem() + " VALUES(";
+                String componentType, componentSplit[];
+                String tableName = jc.getSelectedItem().toString();
+                ArrayList valores = new ArrayList();
 
                 // Percorrer todos os componentes do JPanel para recuperar as entradas
                 for (Component c : pPainelGridInsert.getComponents()) {
@@ -203,7 +205,7 @@ public class JanelaPrincipal {
                     switch (componentType) {
                         case "JComboBox":
                             JComboBox jc = (JComboBox) c;
-                            insert += "'" + jc.getSelectedItem() + "',";
+                            valores.add(jc.getSelectedItem());
                             //System.out.println(jc.getSelectedItem());
                             break;
 
@@ -213,24 +215,19 @@ public class JanelaPrincipal {
                             //se for BLOB entao jt vai estar disabled
                             if (jt.isEnabled()) {
                                 if (jt.getName().contains("DATE")) {
-                                    insert += "TO_DATE('" + jt.getText() + "','dd/mm/yyyy'),";
+                                    valores.add("TO_DATE('" + jt.getText() + "','dd/mm/yyyy')");
+                            
                                 } else {
-                                    insert += "'" + jt.getText() + "',";
+                                    valores.add(jt.getText());
                                 }
                             } else {
-                                insert += "EMPTY_BLOB(),";
+                                valores.add("EMPTY_BLOB()");
                             }
-
                             break;
                     }
-
                 }
-
-                //substituir a  última vírgula por )
-                insert = insert.substring(0, insert.length() - 1) + ")";
-                bd.insertSQL(insert);
+                bd.InsertGenerico(tableName,null,(String[]) valores.toArray());
                 bd.exibeDados(jt, (String) jc.getSelectedItem());
-                System.out.println(insert);
             }
         });
     

@@ -16,19 +16,26 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.table.DefaultTableModel;
+import oracle.jdbc.OracleTypes;
+import oracle.sql.ArrayDescriptor;
+import oracle.sql.ARRAY;
 
 /**
  * SCC-0241 - Laboratório de Bases de Dados
- * Exercício Prático 5
+ * Projeto Final LAB BD
  * @author Rodrigo de Freitas Pereira 7573472
+ * @author Francisco Cabelo 7277652
  */
+
 public class DBFuncionalidades {
 
     Connection connection;
     Statement stmt;
     ResultSet rs;
     JTextArea jtAreaDeStatus;
+    private CallableStatement comando;
 
+    
     public DBFuncionalidades(JTextArea jtaTextArea) {
         jtAreaDeStatus = jtaTextArea;
     }
@@ -49,99 +56,99 @@ public class DBFuncionalidades {
 
     // Recuperar nomes das tabelas para popular JComboBox
     public void pegarNomesDeTabelas(JComboBox jc) {
-        String s = "";
         try {
-            s = "SELECT table_name FROM user_tables";
-            stmt = connection.createStatement();
-            rs = stmt.executeQuery(s);
-            while (rs.next()) {
-                jc.addItem(rs.getString("table_name"));
+            ResultSet cursor = SelectGenerico("user_tables",null,null,null);
+            while (cursor.next()) {
+                jc.addItem(cursor.getString("table_name"));
             }
-            stmt.close();
         } catch (SQLException ex) {
-            jtAreaDeStatus.setText("Erro na consulta: \"" + s + "\"");
+            System.out.print( ex.getMessage());
+            jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
+        }
+    }
+    
+    //Mostrar metadados de uma tabela no jtAreaDeStatus
+    public void mostrarMetaDados(String tableName) {
+        String[] wcampos = new String[1];
+        String[] wvalores = new String[1];
+        wcampos[0] = "TABLE_NAME";
+        wvalores[0] = tableName;
+        String msg = "\t\t" + tableName;
+        try {
+            ResultSet rs = SelectGenerico("USER_TAB_COLUMNS",null,wcampos,wvalores);
+            while (rs.next()) {
+                msg += "\n" + rs.getString("COLUMN_ID") + "\t" + rs.getString("COLUMN_NAME") + "\t\t\t" + rs.getString("DATA_TYPE") + "\t" + rs.getString("NULLABLE");
+            }
+           jtAreaDeStatus.setText(msg);
+        } catch (SQLException ex) {
+             jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
         }
     }
 
-    //Popular JTable com dados de uma dada tabela
+        //Popular JTable com dados de uma dada tabela
     public void exibeDados(JTable tATable, String sTableName) {
-        // String para armazenar query
-        String query = "";
-
-        // Iterador
         int i;
-
         // TableModel para atualização dos dados na tabela
         DefaultTableModel tm = new DefaultTableModel();
-
         try {
+            String[] wcampos = new String[1];
+            String[] wvalores = new String[1];
+            wcampos[0] = "TABLE_NAME";
+            wvalores[0] = sTableName;
             // Consultar nomes dos atributos da tabela no dicionário de dados
-            stmt = connection.createStatement();
-            query = "SELECT * FROM USER_TAB_COLUMNS WHERE TABLE_NAME = '" + sTableName + "'";
-            rs = stmt.executeQuery(query);
+            ResultSet rs = SelectGenerico("USER_TAB_COLUMNS",null,wcampos,wvalores);
             while (rs.next()) {
                 tm.addColumn(rs.getString(2));
             }
 
-            // Consultar dados
-            query = "SELECT * FROM " + sTableName;
-            rs = stmt.executeQuery(query);
+            // Consultar dados da tabela
+            rs = SelectGenerico(sTableName,null,null,null);
             while (rs.next()) {
                 // Recuperar linha da tabela
                 Vector<String> row = new Vector<String>();
                 for (i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
                     row.add(rs.getString(i));
                 }
-
                 // Adicionar linha ao modelo
                 tm.addRow(row);
             }
 
             //Atualizar tabela
             tATable.setModel(tm);
-
         } catch (SQLException ex) {
-            jtAreaDeStatus.setText("Erro na consulta: " + query + "");
+            jtAreaDeStatus.setText("Erro na consulta: "+ex.getMessage());
             ex.printStackTrace();
         }
-
     }
+
+    
     
     // Criar campos para inserção de dados de acordo com uma dada tabela
     public void exibeRotulos(JPanel pInsert, String tableName) {
-        ResultSet rs2;
-        ResultSet rs3;
-        String query = "";
-        Statement stmt2;
-        Statement stmt3;
-        String stringCheckConstraint;
-        String checkAux;
-        String stringCheck[];
-
+        ResultSet rs, rs2, rs3;
+        String stringCheckConstraint, checkAux, stringCheck[];
+        String[] campos = new String[1];
+        String[] wcampos = new String[1];
+        String[] wvalores = new String[1];
         boolean isText;
+        int qtdColumns;
 
         try {
-            int qtdColumns;
-
+            campos[0] = "COUNT(*)";
+            wcampos[0] = "TABLE_NAME";
+            wvalores[0] = tableName;
             // Consultar quantidade de atributos
-            stmt = connection.createStatement();
-
-            query = "SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = '" + tableName + "'";
-            rs = stmt.executeQuery(query);
+            rs = SelectGenerico("USER_TAB_COLUMNS",campos,wcampos,wvalores);
             rs.next();
             qtdColumns = rs.getInt(1);
-
+            
             // Consultar nomes dos atributos da tabela no dicionário de dados
-            //stmt = connection.createStatement();
-            query = "SELECT * FROM USER_TAB_COLUMNS WHERE TABLE_NAME = '" + tableName + "'";
-            rs = stmt.executeQuery(query);
+            rs = SelectGenerico("USER_TAB_COLUMNS",null,wcampos,wvalores);
 
             //Limpar area de contexto (JPanel)
             pInsert.removeAll();
 
             pInsert.setLayout(new GridLayout(qtdColumns, 2, 10, 5));
-            stmt2 = connection.createStatement();
-            stmt3 = connection.createStatement();
            
             //Para cada coluna, verificar e o atributo em questão
             //é chave estrangeira ou possui restrição CHECK
@@ -150,18 +157,14 @@ public class DBFuncionalidades {
                 pInsert.add(new JLabel(rs.getString(2)));
 
                 // Verificar se o atributo é uma chave estrangeira
-                query = "SELECT C1.TABLE_NAME AS TAB_FK,C1.COLUMN_NAME AS FK,C3.TABLE_NAME AS TAB_PK,C3.COLUMN_NAME AS PK FROM  \n"
-                        + "  ALL_CONS_COLUMNS C1 JOIN USER_CONSTRAINTS C2 ON C1.CONSTRAINT_NAME = C2.CONSTRAINT_NAME\n"
-                        + "  JOIN ALL_CONS_COLUMNS C3 ON C2.R_CONSTRAINT_NAME = C3.CONSTRAINT_NAME \n"
-                        + "  WHERE C1.POSITION = C3.POSITION AND C1.COLUMN_NAME = '" + rs.getString(2) + "' AND C1.TABLE_NAME = '" + tableName + "'";
-                rs2 = stmt2.executeQuery(query);
-
+                rs2 = SelectVerificaFK(rs.getString(2),tableName);
+                System.out.println(rs.getString(2)+ "  " +tableName);
                 //Se atributo é uma FK, então criar um JComboBox populado
                 //valores da respectiva PK
+                if (rs2 == null) return;
                 if (rs2.next()) {
-                    query = "SELECT  DISTINCT " + rs2.getString(4) + " FROM " + rs2.getString(3);
-
-                    rs3 = stmt3.executeQuery(query);
+                    campos[0] = "DISTINCT "+ rs2.getString(4);
+                    rs3 = SelectGenerico(rs2.getString(3),campos,null,null);
                     JComboBox jcFk = new JComboBox();
                     jcFk.setName(rs.getString(2));
                     pInsert.add(jcFk);
@@ -173,10 +176,8 @@ public class DBFuncionalidades {
                 }
 
                 // Verificar se o atributo possui restricao CHECK 
-                query = "SELECT CONSTRAINT_NAME,SEARCH_CONDITION  FROM  USER_CONSTRAINTS WHERE OWNER = '7573472'"
-                        + "AND CONSTRAINT_NAME LIKE '%CHECK" + rs.getString(2) + "%' AND TABLE_NAME = '" + tableName + "'";
-                rs2 = stmt2.executeQuery(query);
-
+                rs2 = SelectVerificaCheck(rs.getString(2),tableName);  
+                if (rs2 == null) return;
                 if (rs2.next()) {
                     stringCheckConstraint = rs2.getString(2);
                     if (stringCheckConstraint.contains("IN")) {
@@ -214,41 +215,10 @@ public class DBFuncionalidades {
             }
 
         } catch (SQLException ex) {
-            jtAreaDeStatus.setText("Erro na consulta: " + query + "");
-            ex.printStackTrace();
+            jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
         }
     }
 
-    //Mostrar metadados de uma data tabela
-    public void mostrarMetaDados(String tableName) {
-        // jtAreaDeStatus
-        String query = "SELECT * FROM USER_TAB_COLUMNS WHERE TABLE_NAME = '" + tableName + "'";
-        String msg = "\t\t" + tableName;
-        try {
-            stmt = connection.createStatement();
-            rs = stmt.executeQuery(query);
-
-            while (rs.next()) {
-                msg += "\n" + rs.getString("COLUMN_ID") + "\t" + rs.getString("COLUMN_NAME") + "\t\t\t" + rs.getString("DATA_TYPE") + "\t" + rs.getString("NULLABLE");
-            }
-
-            jtAreaDeStatus.setText(msg);
-
-        } catch (SQLException ex) {
-            jtAreaDeStatus.setText(ex.toString());
-            ex.printStackTrace();
-        }
-    }
-
-    public void insertSQL(String insert) {
-        try {
-            stmt = connection.createStatement();
-            rs = stmt.executeQuery(insert);
-        } catch (SQLException ex) {
-            ex.printStackTrace();
-            jtAreaDeStatus.setText(ex.toString());
-        }
-    }
 
     public void gerarDDL(JTextArea jta, String user, String pass) {
         String query;
@@ -256,9 +226,10 @@ public class DBFuncionalidades {
         Connection conn;
         Statement stmtAux;
         ResultSet rsAux;
-        
+        String[] wcampos = new String[1];
+        String[] wvalores = new String[1];
+           
         try {
-
             Class.forName("oracle.jdbc.driver.OracleDriver");
             conn = DriverManager.getConnection("jdbc:oracle:thin:@grad.icmc.usp.br:15212:orcl",user, pass);
 
@@ -277,19 +248,23 @@ public class DBFuncionalidades {
             //Criar DDL de cada tabela
             stmt = conn.createStatement();
             stmtAux = conn.createStatement();
-            query = "SELECT table_name FROM user_tables";
-            rs = stmt.executeQuery(query);
+            String[] campos = new String[1];
+            campos[0] = "table_name";
+            rs = SelectGenerico("user_tables",campos,null,null);
+
             while(rs.next()){
-                 query = "SELECT dbms_metadata.get_ddl('TABLE', '"+rs.getString(1)+"','"+user+"') FROM DUAL";
-                 rsAux = stmtAux.executeQuery(query);
+                 campos[0] = "dbms_metadata.get_ddl('TABLE', '"+rs.getString(1)+"','"+user+"')";
+                 rsAux = SelectGenerico("DUAL",campos,null,null);
                  rsAux.next();
                  jta.append(rsAux.getString(1));
             }
-            
  
             // Adicionar DDL das FKs
-            query = "SELECT dbms_metadata.get_ddl('REF_CONSTRAINT', c.constraint_name) FROM USER_CONSTRAINTS c WHERE c.constraint_type = 'R'";
-            rs = stmt.executeQuery(query);
+            campos[0] = "dbms_metadata.get_ddl('REF_CONSTRAINT', c.constraint_name)";
+            wcampos[0] = "c.constraint_type";
+            wvalores[0] = "R";            
+            rs = SelectGenerico("USER_CONSTRAINTS c",campos,null,null);
+//            query = "SELECT dbms_metadata.get_ddl('REF_CONSTRAINT', c.constraint_name) FROM USER_CONSTRAINTS c WHERE c.constraint_type = 'R'";
             while (rs.next()) {
                 jta.append(rs.getString(1));
             }
@@ -304,4 +279,93 @@ public class DBFuncionalidades {
            }
     }
 
+    void InsertGenerico(String nomeTabela, String[] campos, String[] valores) {
+        System.out.print(nomeTabela.toString());
+        System.out.print(valores.toString());
+        try {
+            ArrayDescriptor descriptor = ArrayDescriptor.createDescriptor("T_ATRIBUTO",connection);
+            ARRAY wcampos = new ARRAY(descriptor, connection, campos);
+            ARRAY wvalores = new ARRAY(descriptor, connection, valores);
+            // 1. Tabela alvo
+            // 2. Vetor de campos a ser inseridos
+            // 3. Vetor de valores a ser inseridos
+            comando = connection.prepareCall("{ call projeto_api.insercao_tabela(?,?,?) }");
+            comando.setString(1, nomeTabela);
+            comando.setArray(2, wcampos);
+            comando.setArray(3, wvalores);
+            comando.execute();
+        } catch (SQLException ex) {
+               System.out.print( ex.getMessage());
+            jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
+        }
+    }
+    
+        
+    public ResultSet SelectGenerico(String nomeTabela, String[] t_campos, String[] tw_campos, String[] tw_valores )
+    {
+      try {
+            ArrayDescriptor descriptor = ArrayDescriptor.createDescriptor("T_ATRIBUTO",connection);
+            ARRAY campos = new ARRAY(descriptor, connection, t_campos);
+            ARRAY wcampos = new ARRAY(descriptor, connection, tw_campos);
+            ARRAY wvalores = new ARRAY(descriptor, connection, tw_valores);
+
+            // 1. cursor de retorno do PLSQL
+            // 2. Tabela alvo
+            // 3. Vetor de campos dos parametros Where
+            // 4. Vetor de valores do where
+            comando = connection.prepareCall("{ call projeto_api.select_tabela(?,?,?,?,?) }");
+            comando.registerOutParameter(1, OracleTypes.CURSOR);
+            comando.setString(2, nomeTabela);
+            comando.setArray(3, campos);
+            comando.setArray(4, wcampos);
+            comando.setArray(5, wvalores);
+            comando.execute();
+
+            ResultSet cursor = (ResultSet) comando.getObject(1);
+            return cursor;
+        } catch (SQLException ex) {
+               System.out.print( ex.getMessage());
+            jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
+            return null;
+        }
+    }
+
+    public ResultSet SelectVerificaFK(String nomeColuna, String nomeTabela)
+    {
+      try {
+            // 1. cursor de retorno do PLSQL
+            comando = connection.prepareCall("{ call projeto_api.verificar_fk(?,?,?) }");
+            comando.registerOutParameter(1, OracleTypes.CURSOR);
+            comando.setString(2, nomeTabela);
+            comando.setString(3, nomeColuna);
+            comando.execute();
+            ResultSet cursor = (ResultSet) comando.getObject(1);
+            return cursor;
+        } catch (SQLException ex) {
+               System.out.print( ex.getMessage());
+            jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
+            return null;
+        }
+    }
+           
+    public ResultSet SelectVerificaCheck(String nomeColuna, String nomeTabela)
+    {
+      try {
+            // 1. cursor de retorno do PLSQL
+            comando = connection.prepareCall("{ call projeto_api.verificar_check(?,?,?) }");
+            comando.registerOutParameter(1, OracleTypes.CURSOR);
+            comando.setString(2, nomeTabela);
+            comando.setString(3, nomeColuna);
+            comando.execute();
+            ResultSet cursor = (ResultSet) comando.getObject(1);
+            return cursor;
+        } catch (SQLException ex) {
+               System.out.print( ex.getMessage());
+            jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
+            return null;
+        }
+    }
+
+
+        
 }
