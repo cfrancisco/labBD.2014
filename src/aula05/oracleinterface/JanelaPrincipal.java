@@ -5,11 +5,15 @@ import java.awt.Component;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.util.ArrayList;
+import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
@@ -17,6 +21,8 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 
 /**
  * SCC-0241 - Laboratório de Bases de Dados
@@ -56,9 +62,11 @@ public class JanelaPrincipal {
     JPanel pPainelDeInsercaoDeDados;
     JPanel pPainelGridInsert;
 
-    //Botão para inserção de dados
+    //Botões para inserção, alteração e remoção de dados
     JButton btInsert;
-
+    JButton btUpdate;
+    JButton btDelete;
+    
     //Senha
     JPasswordField jpPassword;
 
@@ -85,7 +93,7 @@ public class JanelaPrincipal {
 
     public void ExibeJanelaPrincipal() {
         /*Janela*/
-        j = new JFrame("ICMC-USP - SCC0241 - Pratica 5");
+        j = new JFrame("ICMC-USP - SCC0241 - Projeto");
         j.setSize(700, 500);
         j.setLayout(new BorderLayout());
         j.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -94,7 +102,10 @@ public class JanelaPrincipal {
         pPainelDeCima = new JPanel();
         j.add(pPainelDeCima, BorderLayout.NORTH);
         jc = new JComboBox();
+        btDelete = new JButton("Excluir");
+        btDelete.setEnabled(false);
         pPainelDeCima.add(jc);
+        pPainelDeCima.add(btDelete);
 
         /*Painel da parte inferior (south) - com área de status*/
         pPainelDeBaixo = new JPanel();
@@ -182,6 +193,9 @@ public class JanelaPrincipal {
 
                         // Carregar atributos para inserção de dados
                         bd.exibeRotulos(pPainelGridInsert, (String) jcTemp.getSelectedItem());
+                        
+                        //Desabilitar botão
+                        btDelete.setEnabled(false);
                     }
                 });
 
@@ -193,9 +207,11 @@ public class JanelaPrincipal {
             public void actionPerformed(ActionEvent e) {
                 String componentType, componentSplit[];
                 String tableName = jc.getSelectedItem().toString();
-                ArrayList valores = new ArrayList();
-
-                // Percorrer todos os componentes do JPanel para recuperar as entradas
+                List<String> valores = new ArrayList();
+                List<String> campos = new ArrayList();
+                int status;
+                // Percorrer todos os componentes do JPanel para recuperar as entradas, mas evitando 
+                // JLabels
                 for (Component c : pPainelGridInsert.getComponents()) {
                     // System.out.println(c.getName()+" "+c.getClass().getName());
                     componentSplit = c.getClass().getName().split("\\.");
@@ -205,7 +221,9 @@ public class JanelaPrincipal {
                     switch (componentType) {
                         case "JComboBox":
                             JComboBox jc = (JComboBox) c;
-                            valores.add(jc.getSelectedItem());
+                            valores.add((String)jc.getSelectedItem());
+                            campos.add(jc.getName());
+                            //System.out.println(c.getName());
                             //System.out.println(jc.getSelectedItem());
                             break;
 
@@ -223,14 +241,46 @@ public class JanelaPrincipal {
                             } else {
                                 valores.add("EMPTY_BLOB()");
                             }
+                            
+                              campos.add(jt.getName());
+                              //System.out.println(c.getName());
+                            
                             break;
+                        
+                        //TODO
+                        case "JFileChooser":
+                                break;
+                        
                     }
+                  
                 }
-                bd.InsertGenerico(tableName,null,(String[]) valores.toArray());
-                bd.exibeDados(jt, (String) jc.getSelectedItem());
+                status = bd.InsertGenerico(tableName,  campos.toArray(new String[campos.size()]), valores.toArray(new String[valores.size()]));
+               if(status== Mensagens.INSERT_SUCCESS){
+                    JOptionPane.showMessageDialog(j,
+                    "REGISTRO INSERIDO COM SUCESSO",
+                    "ICMC-USP - SCC0241 - Projeto",
+                    JOptionPane.INFORMATION_MESSAGE);
+                    escreverAreaStatus("REGISTRO INSERIDO COM SUCESSO");
+                    bd.exibeDados(jt, (String) jc.getSelectedItem());
+               }else if(status == Mensagens.INSERT_ERROR){
+                   JOptionPane.showMessageDialog(j,
+                    "FALHA NA OPERAÇÃO. FAVOR OLHAR ÁREA DE STATUS",
+                    "ICMC-USP - SCC0241 - Projeto",
+                    JOptionPane.INFORMATION_MESSAGE);
+               }
             }
         });
     
+        //Excluir registro
+        btDelete.addActionListener(new ActionListener(){
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+            }
+            
+        });
+        
          //Gerar DDL 
          btnDDL.addActionListener(new ActionListener() {
             @Override
@@ -238,7 +288,42 @@ public class JanelaPrincipal {
                 bd.gerarDDL(jtaDDL,jtUsuario.getText(),String.valueOf(jpPassword.getPassword()));
             }
          });
+         
+         //Habilitar botão exclusão e alteração de dados quando um registro for selecionado
+         jt.addMouseListener(new MouseListener(){
+
+            @Override
+            public void mouseClicked(MouseEvent e) {
+            }
+
+            @Override
+            public void mousePressed(MouseEvent e) {
+            }
+
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                btDelete.setEnabled(true);
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+            }
+         
+         });
+         
     }
     
-    
+    //Limpar Área de status
+     public void limparAreaStatus(){
+         escreverAreaStatus("");
+     }
+     
+     //Escrever na Área de status;
+    public void escreverAreaStatus(String txt){
+        jtAreaDeStatus.setText(txt);
+    }
 }

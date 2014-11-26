@@ -137,6 +137,7 @@ public class DBFuncionalidades {
             campos[0] = "COUNT(*)";
             wcampos[0] = "TABLE_NAME";
             wvalores[0] = tableName;
+            
             // Consultar quantidade de atributos
             rs = SelectGenerico("USER_TAB_COLUMNS",campos,wcampos,wvalores);
             rs.next();
@@ -158,7 +159,7 @@ public class DBFuncionalidades {
 
                 // Verificar se o atributo é uma chave estrangeira
                 rs2 = SelectVerificaFK(rs.getString(2),tableName);
-                System.out.println(rs.getString(2)+ "  " +tableName);
+               // System.out.println(rs.getString(2)+ "  " +tableName);
                 //Se atributo é uma FK, então criar um JComboBox populado
                 //valores da respectiva PK
                 if (rs2 == null) return;
@@ -201,11 +202,11 @@ public class DBFuncionalidades {
                 }
 
                 // Inserir JTextField caso atributo não for chave estrangeira ou possuir restricao  CHECK
-                // Mas se for BLOB deixar desabilitado
+                // Mas se for BLOB deixar desabilitado - BLOB = JFileChooser
                 if (isText) {
                     JTextField tAttri = new JTextField();
-                    tAttri.setName(rs.getString(2) + "_" + rs.getString(3));
-
+                    tAttri.setName(rs.getString(2));
+                   // System.out.println(rs.getString(2) + "_" + rs.getString(3));
                     if (rs.getString(3).equals("BLOB")) {
                         tAttri.setEnabled(false);
                     }
@@ -279,9 +280,7 @@ public class DBFuncionalidades {
            }
     }
 
-    void InsertGenerico(String nomeTabela, String[] campos, String[] valores) {
-        System.out.print(nomeTabela.toString());
-        System.out.print(valores.toString());
+    int InsertGenerico(String nomeTabela, String[] campos, String[] valores) {
         try {
             ArrayDescriptor descriptor = ArrayDescriptor.createDescriptor("T_ATRIBUTO",connection);
             ARRAY wcampos = new ARRAY(descriptor, connection, campos);
@@ -294,10 +293,14 @@ public class DBFuncionalidades {
             comando.setArray(2, wcampos);
             comando.setArray(3, wvalores);
             comando.execute();
+            
         } catch (SQLException ex) {
                System.out.print( ex.getMessage());
             jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
+            return Mensagens.INSERT_ERROR;
         }
+        return Mensagens.INSERT_SUCCESS;
+        
     }
     
         
@@ -324,7 +327,7 @@ public class DBFuncionalidades {
             ResultSet cursor = (ResultSet) comando.getObject(1);
             return cursor;
         } catch (SQLException ex) {
-               System.out.print( ex.getMessage());
+            System.out.print( ex.getMessage());
             jtAreaDeStatus.setText("Erro na consulta: \"" + ex.getMessage() + "\"");
             return null;
         }
