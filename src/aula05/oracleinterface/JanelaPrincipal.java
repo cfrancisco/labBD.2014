@@ -21,12 +21,12 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 /**
- * SCC-0241 - Laboratório de Bases de Dados
- * Exercício Prático 5
+ * SCC-0241 - Laboratório de Bases de Dados Exercício Prático 5
+ *
  * @author Rodrigo de Freitas Pereira 7573472
  */
 public class JanelaPrincipal {
@@ -65,8 +65,9 @@ public class JanelaPrincipal {
     //Botões para inserção, alteração e remoção de dados
     JButton btInsert;
     JButton btUpdate;
+    JButton btClaudia;
     JButton btDelete;
-    
+
     //Senha
     JPasswordField jpPassword;
 
@@ -80,10 +81,10 @@ public class JanelaPrincipal {
     //JTextArea para mostrar DDL
     JTextArea jtaDDL;
     JScrollPane jspTA;
-    
+
     //Butão para geração de DDL
     JButton btnDDL;
-    
+
     //Painel para geração de DDL
     JPanel jpDDLlabelText;
     JPanel jpDDL;
@@ -104,8 +105,11 @@ public class JanelaPrincipal {
         jc = new JComboBox();
         btDelete = new JButton("Excluir");
         btDelete.setEnabled(false);
+        btUpdate = new JButton("Atualizar");
+        btUpdate.setEnabled(false);
         pPainelDeCima.add(jc);
         pPainelDeCima.add(btDelete);
+        pPainelDeCima.add(btUpdate);
 
         /*Painel da parte inferior (south) - com área de status*/
         pPainelDeBaixo = new JPanel();
@@ -130,14 +134,20 @@ public class JanelaPrincipal {
 
         /*Tab de inserção*/
         btInsert = new JButton("Inserir");
+        btInsert.setVisible(false);
+        btClaudia = new JButton("Atualizar");
+        btClaudia.setVisible(false);
         pPainelGridInsert = new JPanel();
         pPainelGridInsert.setLayout(new GridLayout(1, 1));
         pPainelGridInsert.add(new JLabel("Selecione uma tabela para inserção"));
 
         pPainelDeInsercaoDeDados = new JPanel();
+        JPanel btnPanel = new JPanel();
         pPainelDeInsercaoDeDados.setLayout(new BorderLayout());
         pPainelDeInsercaoDeDados.add(pPainelGridInsert, BorderLayout.NORTH);
-        pPainelDeInsercaoDeDados.add(btInsert, BorderLayout.SOUTH);
+        btnPanel.add(btInsert);
+        btnPanel.add(btClaudia);
+        pPainelDeInsercaoDeDados.add(btnPanel, BorderLayout.SOUTH);
 
         tabbedPane.add(pPainelDeInsercaoDeDados, "Inserção");
 
@@ -180,6 +190,17 @@ public class JanelaPrincipal {
     }
 
     private void DefineEventos() {
+        //Mudar visibilidade dos botoes ao mudar de aba
+        tabbedPane.addChangeListener(new ChangeListener() {
+
+            @Override
+            public void stateChanged(ChangeEvent e) {
+                btClaudia.setVisible(false);
+                btInsert.setVisible(true);
+             }
+
+        });
+
         //Carregar tabela com dados e criar campos para inserção
         jc.addActionListener(
                 new ActionListener() {
@@ -193,16 +214,18 @@ public class JanelaPrincipal {
 
                         // Carregar atributos para inserção de dados
                         bd.exibeRotulos(pPainelGridInsert, (String) jcTemp.getSelectedItem());
-                        
+
                         //Desabilitar botão
                         btDelete.setEnabled(false);
+                        btUpdate.setEnabled(false);
+
+                        btInsert.setVisible(true);
                     }
                 });
 
         // Realizar INSERT
         btInsert.addActionListener(new ActionListener() {
-            
-            
+
             @Override
             public void actionPerformed(ActionEvent e) {
                 String componentType, componentSplit[];
@@ -221,7 +244,7 @@ public class JanelaPrincipal {
                     switch (componentType) {
                         case "JComboBox":
                             JComboBox jc = (JComboBox) c;
-                            valores.add((String)jc.getSelectedItem());
+                            valores.add((String) jc.getSelectedItem());
                             campos.add(jc.getName());
                             //System.out.println(c.getName());
                             //System.out.println(jc.getSelectedItem());
@@ -234,63 +257,218 @@ public class JanelaPrincipal {
                             if (jt.isEnabled()) {
                                 if (jt.getName().contains("DATE")) {
                                     valores.add("TO_DATE('" + jt.getText() + "','dd/mm/yyyy')");
-                            
+
                                 } else {
                                     valores.add(jt.getText());
                                 }
                             } else {
                                 valores.add("EMPTY_BLOB()");
                             }
-                            
-                              campos.add(jt.getName());
-                              //System.out.println(c.getName());
-                            
+
+                            campos.add(jt.getName());
+                            //System.out.println(c.getName());
+
                             break;
-                        
+
                         //TODO
                         case "JFileChooser":
-                                break;
-                        
+                            break;
+
                     }
-                  
+
                 }
-                status = bd.InsertGenerico(tableName,  campos.toArray(new String[campos.size()]), valores.toArray(new String[valores.size()]));
-               if(status== Mensagens.INSERT_SUCCESS){
+                status = bd.InsertGenerico(tableName, campos.toArray(new String[campos.size()]), valores.toArray(new String[valores.size()]));
+                if (status == Mensagens.INSERT_SUCCESS) {
                     JOptionPane.showMessageDialog(j,
-                    "REGISTRO INSERIDO COM SUCESSO",
-                    "ICMC-USP - SCC0241 - Projeto",
-                    JOptionPane.INFORMATION_MESSAGE);
+                            "REGISTRO INSERIDO COM SUCESSO",
+                            "ICMC-USP - SCC0241 - Projeto",
+                            JOptionPane.INFORMATION_MESSAGE);
                     escreverAreaStatus("REGISTRO INSERIDO COM SUCESSO");
                     bd.exibeDados(jt, (String) jc.getSelectedItem());
-               }else if(status == Mensagens.INSERT_ERROR){
-                   JOptionPane.showMessageDialog(j,
-                    "FALHA NA OPERAÇÃO. FAVOR OLHAR ÁREA DE STATUS",
-                    "ICMC-USP - SCC0241 - Projeto",
-                    JOptionPane.INFORMATION_MESSAGE);
-               }
+                    tabbedPane.setSelectedIndex(0);
+                } else if (status == Mensagens.INSERT_ERROR) {
+                    JOptionPane.showMessageDialog(j,
+                            "FALHA NA OPERAÇÃO. FAVOR OLHAR ÁREA DE STATUS",
+                            "ICMC-USP - SCC0241 - Projeto",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+
+                btDelete.setEnabled(false);
+                btUpdate.setEnabled(false);
             }
         });
-    
-        //Excluir registro
-        btDelete.addActionListener(new ActionListener(){
+
+        //Trocar de aba para atualizar registro
+        btUpdate.addActionListener(new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                String componentType, componentSplit[];
+
+                //Recuperar tupla selecionada
+                List<String> valores = new ArrayList();
+                for (int i = 0; i < jt.getColumnCount(); i++) {
+                    valores.add((String) jt.getValueAt(jt.getSelectedRow(), i));
+                }
+
+                int i = 1;
+                for (Component c : pPainelGridInsert.getComponents()) {
+                    componentSplit = c.getClass().getName().split("\\.");
+                    componentType = componentSplit[componentSplit.length - 1];
+
+                    switch (componentType) {
+                        case "JComboBox":
+                            JComboBox jc = (JComboBox) c;
+                            jc.setSelectedItem(valores.get((i / 2) - 1));
+                            break;
+
+                        case "JTextField":
+                            JTextField jt = (JTextField) c;
+                            jt.setText(valores.get((i / 2) - 1));
+                            break;
+
+                        //TODO
+                        case "JFileChooser":
+
+                            break;
+                    }
+                    i++;
+                }
+
+                //Trocar de aba
+                tabbedPane.setSelectedIndex(1);
+                btClaudia.setVisible(true);
+                btInsert.setVisible(false);
             }
-            
+
         });
-        
-         //Gerar DDL 
-         btnDDL.addActionListener(new ActionListener() {
+
+        //Atualizar registro
+        btClaudia.addActionListener(new ActionListener() {
+
             @Override
             public void actionPerformed(ActionEvent e) {
-                bd.gerarDDL(jtaDDL,jtUsuario.getText(),String.valueOf(jpPassword.getPassword()));
+                String componentType, componentSplit[];
+                String tableName = jc.getSelectedItem().toString();
+                List<String> valoresNovos = new ArrayList();
+                int status;
+               
+                 //Recuperar tupla selecionada
+                List<String> valoresAntigos = new ArrayList();
+                for (int i = 0; i < jt.getColumnCount(); i++) {
+                    valoresAntigos.add((String) jt.getValueAt(jt.getSelectedRow(), i));
+                }
+
+                
+                // Percorrer todos os componentes do JPanel para recuperar as entradas, mas evitando 
+                // JLabels
+                for (Component c : pPainelGridInsert.getComponents()) {
+                    componentSplit = c.getClass().getName().split("\\.");
+                    componentType = componentSplit[componentSplit.length - 1];
+
+                    switch (componentType) {
+                        case "JComboBox":
+                            JComboBox jc = (JComboBox) c;
+                            valoresNovos.add((String) jc.getSelectedItem());
+                            //System.out.println(c.getName());
+                            //System.out.println(jc.getSelectedItem());
+                            break;
+
+                        case "JTextField":
+                            JTextField jt = (JTextField) c;
+
+                            //se for BLOB entao jt vai estar disabled
+                            if (jt.isEnabled()) {
+                                if (jt.getName().contains("DATE")) {
+                                    valoresNovos.add("TO_DATE('" + jt.getText() + "','dd/mm/yyyy')");
+
+                                } else {
+                                    valoresNovos.add(jt.getText());
+                                }
+                            } else {
+                                valoresNovos.add("EMPTY_BLOB()");
+                            }
+                            break;
+
+                        //TODO
+                        case "JFileChooser":
+                            break;
+
+                    }
+
+                }
+                status = bd.AtualizarGenerico(tableName, bd.nomeColunas((String)jc.getSelectedItem()),
+                        valoresAntigos.toArray(new String[valoresAntigos.size()]),
+                        valoresNovos.toArray(new String[valoresNovos.size()]));
+                if (status == Mensagens.UPDATE_SUCCESS) {
+                    JOptionPane.showMessageDialog(j,
+                            "REGISTRO ATUALIZADO COM SUCESSO",
+                            "ICMC-USP - SCC0241 - Projeto",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    escreverAreaStatus("REGISTRO ATUALIZADO COM SUCESSO");
+                    bd.exibeDados(jt, (String) jc.getSelectedItem());
+                    tabbedPane.setSelectedIndex(0);
+                } else if (status == Mensagens.UPDATE_ERROR) {
+                    JOptionPane.showMessageDialog(j,
+                            "FALHA NA OPERAÇÃO. FAVOR OLHAR ÁREA DE STATUS",
+                            "ICMC-USP - SCC0241 - Projeto",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+
+                btDelete.setEnabled(false);
+                btUpdate.setEnabled(false);
+
             }
-         });
-         
-         //Habilitar botão exclusão e alteração de dados quando um registro for selecionado
-         jt.addMouseListener(new MouseListener(){
+        });
+
+        //Excluir registro
+        btDelete.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                int status;
+
+                //Recuperar tupla selecionada
+                List<String> valores = new ArrayList();
+                for (int i = 0; i < jt.getColumnCount(); i++) {
+                    valores.add((String) jt.getValueAt(jt.getSelectedRow(), i));
+                }
+
+                //Recuperar nome das colunas
+                String campos[] = bd.nomeColunas((String) jc.getSelectedItem());
+
+                status = bd.DeleteGenerico((String) jc.getSelectedItem(), campos, valores.toArray(new String[valores.size()]));
+                if (status == Mensagens.INSERT_SUCCESS) {
+                    JOptionPane.showMessageDialog(j,
+                            "REGISTRO EXCLUIDO COM SUCESSO",
+                            "ICMC-USP - SCC0241 - Projeto",
+                            JOptionPane.INFORMATION_MESSAGE);
+                    escreverAreaStatus("REGISTRO EXCLUIDO COM SUCESSO");
+                    bd.exibeDados(jt, (String) jc.getSelectedItem());
+                    tabbedPane.setSelectedIndex(0);
+                } else if (status == Mensagens.INSERT_ERROR) {
+                    JOptionPane.showMessageDialog(j,
+                            "FALHA NA OPERAÇÃO. FAVOR OLHAR ÁREA DE STATUS",
+                            "ICMC-USP - SCC0241 - Projeto",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+
+                btDelete.setEnabled(false);
+                btUpdate.setEnabled(false);
+            }
+
+        });
+
+        //Gerar DDL 
+        btnDDL.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                bd.gerarDDL(jtaDDL, jtUsuario.getText(), String.valueOf(jpPassword.getPassword()));
+            }
+        });
+
+        //Habilitar botão exclusão e alteração de dados quando um registro for selecionado
+        jt.addMouseListener(new MouseListener() {
 
             @Override
             public void mouseClicked(MouseEvent e) {
@@ -303,6 +481,7 @@ public class JanelaPrincipal {
             @Override
             public void mouseReleased(MouseEvent e) {
                 btDelete.setEnabled(true);
+                btUpdate.setEnabled(true);
             }
 
             @Override
@@ -312,18 +491,18 @@ public class JanelaPrincipal {
             @Override
             public void mouseExited(MouseEvent e) {
             }
-         
-         });
-         
+
+        });
+
     }
-    
+
     //Limpar Área de status
-     public void limparAreaStatus(){
-         escreverAreaStatus("");
-     }
-     
-     //Escrever na Área de status;
-    public void escreverAreaStatus(String txt){
+    public void limparAreaStatus() {
+        escreverAreaStatus("");
+    }
+
+    //Escrever na Área de status;
+    public void escreverAreaStatus(String txt) {
         jtAreaDeStatus.setText(txt);
     }
 }
