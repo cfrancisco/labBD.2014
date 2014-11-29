@@ -7,6 +7,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.io.DataInputStream;
+import java.io.FileInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JButton;
@@ -23,6 +26,8 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import oracle.sql.BLOB;
+import sun.misc.IOUtils;
 
 /**
  * SCC-0241 - Laboratório de Bases de Dados Exercício Prático 5
@@ -261,17 +266,35 @@ public class JanelaPrincipal {
                                 } else {
                                     valores.add(jt.getText());
                                 }
-                            } else {
-                                valores.add("EMPTY_BLOB()");
+                                campos.add(jt.getName());
+                         
                             }
-
-                            campos.add(jt.getName());
-                            //System.out.println(c.getName());
-
                             break;
-
-                        //TODO
-                        case "JFileChooser":
+                        case "JButton":
+                            try{
+                                FileInputStream io = new FileInputStream(DBFuncionalidades.file);
+                                InputStream ios =(InputStream)io;
+                                JButton jc2;
+                                jc2 = (JButton) c;
+                                byte[] imgDataBa = new byte[(int)DBFuncionalidades.file.length()];
+                                DataInputStream dataIs = new DataInputStream(io);
+                                dataIs.readFully(imgDataBa);
+                                
+                           /*     for (int i = 0; i < imgDataBa.length; i++)
+                                {
+                                    System.out.println(imgDataBa[i]);
+                                }
+                                System.out.println("#####");
+                              */
+                                System.out.println(imgDataBa.toString());
+                                valores.add("utl_raw.cast_to_raw("+imgDataBa.toString()+")");
+                                campos.add(jc2.getName());
+//                          pstmt.setBinaryStream(1, (InputStream)in, (int)file.length());
+        
+                            }
+                            catch (Exception ex )
+                            {}
+                            
                             break;
 
                     }

@@ -1,6 +1,13 @@
 package aula05.oracleinterface;
 
+import java.awt.Component;
 import java.awt.GridLayout;
+import java.awt.Image;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.File;
+import java.sql.Blob;
 import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -10,7 +17,13 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTable;
@@ -27,13 +40,18 @@ import oracle.sql.ARRAY;
  * @author Rodrigo de Freitas Pereira 7573472
  * @author Francisco Cabelo 7277652
  */
-public class DBFuncionalidades {
+public class DBFuncionalidades   implements ActionListener {
 
     Connection connection;
     Statement stmt;
     ResultSet rs;
     JTextArea jtAreaDeStatus;
     private CallableStatement comando;
+    private JFileChooser fc;
+    private JPanel panelBase;
+    public static File file;
+Vector<Blob> blobList;
+
 
     public DBFuncionalidades(JTextArea jtaTextArea) {
         jtAreaDeStatus = jtaTextArea;
@@ -110,27 +128,53 @@ public class DBFuncionalidades {
 
     //Popular JTable com dados de uma dada tabela
     public void exibeDados(JTable tATable, String sTableName) {
-        int i;
+        int i,indiceBlob;
         // TableModel para atualização dos dados na tabela
         DefaultTableModel tm = new DefaultTableModel();
         try {
+            blobList = new Vector<Blob>();
+
             String[] wcampos = new String[1];
             String[] wvalores = new String[1];
             wcampos[0] = "TABLE_NAME";
             wvalores[0] = sTableName;
             // Consultar nomes dos atributos da tabela no dicionário de dados
             ResultSet rs = SelectGenerico("USER_TAB_COLUMNS", null, wcampos, wvalores);
+            i = 1;
+            indiceBlob = -1;
             while (rs.next()) {
-                tm.addColumn(rs.getString(2));
+                String val = rs.getString(2);
+                i++;
+                if ("Imagem".equals(val))
+                    indiceBlob = i;
+                tm.addColumn(val);
             }
-
+                
             // Consultar dados da tabela
             rs = SelectGenerico(sTableName, null, null, null);
+            int linha = 0;
             while (rs.next()) {
+                linha ++;
                 // Recuperar linha da tabela
-                Vector<String> row = new Vector<String>();
-                for (i = 1; i <= rs.getMetaData().getColumnCount(); i++) {
-                    row.add(rs.getString(i));
+                Vector<Object> row = new Vector<>();
+                for (i = 1; i <= rs.getMetaData().getColumnCount(); i++)
+                {
+                    if (i == indiceBlob)
+                    {
+                        JButton addButton = new JButton( "Ver Imagem" );
+                        blobList.add(rs.getBlob(i)); 
+                        addButton.addActionListener( new ActionListener( ) {
+                            
+                            public void actionPerformed( ActionEvent e )
+                            {
+                            //    DisplayImage(linha);
+                            }
+                          });                    
+
+                        row.add(addButton);
+                    } 
+                    else
+                        row.add(rs.getString(i));
                 }
                 // Adicionar linha ao modelo
                 tm.addRow(row);
@@ -144,9 +188,37 @@ public class DBFuncionalidades {
         }
     }
 
+public void DisplayImage(int index) 
+{
+    Blob blob = blobList.get(index);
+    int blobLength;
+        try {
+            blobLength = (int) blob.length();
+        
+            byte[] image = blob.getBytes(1, blobLength);
+            JFrame imagem = new JFrame("Image Display");
+            imagem.setSize(600,600);
+            Image img = Toolkit.getDefaultToolkit().createImage(image);
+
+            ImageIcon icon =new ImageIcon(img);
+            JLabel lPhoto = new JLabel();
+            lPhoto.setIcon(icon);
+            imagem.add(lPhoto);
+
+
+            imagem.setVisible(true);
+            } catch (SQLException ex) {
+            Logger.getLogger(DBFuncionalidades.class.getName()).log(Level.SEVERE, null, ex);
+        }
+}
+
+    
+    
     // Criar campos para inserção de dados de acordo com uma dada tabela
     public void exibeRotulos(JPanel pInsert, String tableName) {
         ResultSet rs, rs2, rs3;
+        
+        panelBase = pInsert;
         String stringCheckConstraint, checkAux, stringCheck[];
         String[] campos = new String[1];
         String[] wcampos = new String[1];
@@ -216,7 +288,7 @@ public class DBFuncionalidades {
                         //Popular JComboBox com os possíveis valores
                         JComboBox jcCheck = new JComboBox();
                         jcCheck.setName(rs.getString(2));
-                        pInsert.add(jcCheck);
+                         pInsert.add(jcCheck);
 
                         for (String stringCheck1 : stringCheck) {
                             jcCheck.addItem(stringCheck1);
@@ -234,9 +306,18 @@ public class DBFuncionalidades {
                     // System.out.println(rs.getString(2) + "_" + rs.getString(3));
                     if (rs.getString(3).equals("BLOB")) {
                         tAttri.setEnabled(false);
+                        
+                        JButton sendButton = new JButton("Anexar...");
+                        sendButton.addActionListener(this);
+                        sendButton.setName(rs.getString(2));
+                        pInsert.add(sendButton);
+                 
                     }
-
-                    pInsert.add(tAttri);
+                    else
+                    {
+                        pInsert.add(tAttri);
+                    }
+                   
                 }
             }
 
@@ -245,6 +326,43 @@ public class DBFuncionalidades {
         }
     }
 
+    
+    public void actionPerformed(ActionEvent e) {
+        //Set up the file chooser.
+        if (fc == null) {
+            fc = new JFileChooser();
+
+	    //Add a custom file filter and disable the default
+	    //(Accept All) file filter.
+            fc.addChoosableFileFilter(new ImageFilter());
+            fc.setAcceptAllFileFilterUsed(false);
+
+
+	    //Add custom icons for file types.
+            fc.setFileView(new ImageFileView());
+
+	    //Add the preview pane.
+            fc.setAccessory(new ImagePreview(fc));
+        }
+
+        //Show it.
+        int returnVal = fc.showDialog(panelBase,
+                                      "Attach");
+
+        //Process the results.
+        if (returnVal == JFileChooser.APPROVE_OPTION) {
+            file = fc.getSelectedFile();
+            jtAreaDeStatus.setText("Arquivo anexado: " + file.getName());
+        } else {
+            jtAreaDeStatus.setText("Anexo cancelado pelo usuario.");
+        }
+
+        
+        //Reset the file chooser for the next time it's shown.
+        fc.setSelectedFile(null);
+    }
+
+    
     public void gerarDDL(JTextArea jta, String user, String pass) {
         String query;
         jta.setText("");
